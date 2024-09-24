@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Лови Звёзды</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #1e1e1e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            background-color: #000;
+            border: 2px solid #fff;
+            overflow: hidden;
+        }
+
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 20px;
+            background-color: #ff5722;
+            border-radius: 10px;
+        }
+
+        .star {
+            position: absolute;
+            top: 0;
+            width: 20px;
+            height: 20px;
+            background-color: gold;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: twinkle 1.5s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #scoreBoard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+        }
+
+        #missedBoard {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 18px;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: none;
+        }
+
+        #message h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        #startButton, #restartButton {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #2196f3;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        #startButton:hover, #restartButton:hover {
+            background-color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+
+<div id="gameContainer">
+    <div id="scoreBoard">Счёт: 0</div>
+    <div id="missedBoard">Пропущено: 0</div>
+    <div id="player"></div>
+    
+    <div id="message">
+        <h1>Лови Звёзды</h1>
+        <button id="startButton">Начать игру</button>
+    </div>
+</div>
+
+<script>
+    const gameContainer = document.getElementById('gameContainer');
+    const player = document.getElementById('player');
+    const scoreBoard = document.getElementById('scoreBoard');
+    const missedBoard = document.getElementById('missedBoard');
+    const message = document.getElementById('message');
+    const startButton = document.getElementById('startButton');
+
+    const GAME_WIDTH = 400;
+    const GAME_HEIGHT = 600;
+    const PLAYER_WIDTH = 80;
+    const PLAYER_HEIGHT = 20;
+    const STAR_SIZE = 20;
+    const PLAYER_SPEED = 7;
+    const STAR_FALL_SPEED = 3;
+    const STAR_INTERVAL = 1000; // Время между появлением звёзд в миллисекундах
+    const MAX_MISSED = 5;
+
+    let playerPosition = GAME_WIDTH / 2 - PLAYER_WIDTH / 2;
+    let score = 0;
+    let missed = 0;
+    let starIntervalId;
+    let gameLoopId;
+    let moveLeft = false;
+    let moveRight = false;
+    let gameOver = false;
+
+    // Инициализация позиции игрока
+    function initPlayer() {
+        player.style.left = playerPosition + 'px';
+    }
+
+    // Обновление позиции игрока
+    function updatePlayer() {
+        if (moveLeft) {
+            playerPosition -= PLAYER_SPEED;
+        }
+        if (moveRight) {
+            playerPosition += PLAYER_SPEED;
+        }
+
+        // Ограничение движения игрока по границам экрана
+        playerPosition = Math.max(0, Math.min(GAME_WIDTH - PLAYER_WIDTH, playerPosition));
+        player.style.left = playerPosition + 'px';
+    }
+
+    // Создание новой звезды
+    function createStar() {
+        const star = document.createElement('div');
+        star.classList.add('star');
+        star.style.left = Math.floor(Math.random() * (GAME_WIDTH - STAR_SIZE)) + 'px';
+        gameContainer.appendChild(star);
+    }
+
+    // Обновление звёзд (перемещение вниз и проверка на ловлю)
+    function updateStars() {
+        const stars = document.querySelectorAll('.star');
+        stars.forEach(star => {
+            let top = parseInt(star.style.top || '0');
+            top += STAR_FALL_SPEED;
+            star.style.top = top + 'px';
+
+            // Проверка, пойманы ли звёзды
+            if (top + STAR_SIZE >= GAME_HEIGHT - PLAYER_HEIGHT - 20) { // 20 - расстояние от нижней границы
+                const starLeft = parseInt(star.style.left);
+                const playerLeft = playerPosition;
+                const playerRight = playerPosition + PLAYER_WIDTH;
+
+                if (starLeft + STAR_SIZE >= playerLeft && starLeft <= playerRight) {
+                    // Звезда поймана
+                    score += 10;
+                    scoreBoard.textContent = 'Счёт: ' + score;
+                    star.remove();
+                } else if (top > GAME_HEIGHT) {
+                    // Звезда пропущена
+                    missed += 1;
+                    missedBoard.textContent = 'Пропущено: ' + missed;
+                    star.remove();
+
+                    if (missed >= MAX_MISSED) {
+                        endGame();
+                    }
+                }
+            }
+        });
+    }
+
+    // Основной игровой цикл
+    function gameLoop() {
+        updatePlayer();
+        updateStars();
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    // Начало игры
+    function startGame() {
+        // Сброс состояния
+        score = 0;
+        missed = 0;
+        scoreBoard.textContent = 'Счёт: ' + score;
+        missedBoard.textContent = 'Пропущено: ' + missed;
+        playerPosition = GAME_WIDTH / 2 - PLAYER_WIDTH / 2;
+        initPlayer();
+
+        // Очистка оставшихся звёзд
+        const stars = document.querySelectorAll('.star');
+        stars.forEach(star => star.remove());
+
+        // Скрытие сообщения
+        message.style.display = 'none';
+
+        // Начало создания звёзд
+        starIntervalId = setInterval(createStar, STAR_INTERVAL);
+
+        // Запуск игрового цикла
+        gameLoop();
+    }
+
+    // Конец игры
+    function endGame() {
+        gameOver = true;
+        clearInterval(starIntervalId);
+        cancelAnimationFrame(gameLoopId);
+        message.querySelector('h1').textContent = 'Игра окончена!';
+        message.querySelector('button').textContent = 'Играть снова';
+        message.style.display = 'block';
+    }
+
+    // Обработка клавиш клавиатуры
+    document.addEventListener('keydown', function(event) {
+        if (event.code === 'ArrowLeft') {
+            moveLeft = true;
+        } else if (event.code === 'ArrowRight') {
+            moveRight = true;
+        }
+    });
+
+    document.addEventListener('keyup', function(event) {
+        if (event.code === 'ArrowLeft') {
+            moveLeft = false;
+        } else if (event.code === 'ArrowRight') {
+            moveRight = false;
+        }
+    });
+
+    // Обработка нажатия кнопки "Начать игру" / "Играть снова"
+    startButton.addEventListener('click', function() {
+        gameOver = false;
+        startGame();
+    });
+
+    // Инициализация игры при загрузке страницы
+    window.onload = function() {
+        message.style.display = 'block';
+    };
+</script>
+
+</body>
+</html>
